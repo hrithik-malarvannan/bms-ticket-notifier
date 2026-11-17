@@ -1,0 +1,43 @@
+
+name: Test Email Notification
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-email:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send test email via Resend
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+          RESEND_TO_EMAIL: ${{ secrets.RESEND_TO_EMAIL }}
+        run: |
+          payload=$(jq -n \
+            --arg from "$RESEND_FROM_EMAIL" \
+            --arg to "$RESEND_TO_EMAIL" \
+            '{
+              from: $from,
+              to: [$to],
+              subject: "BMS Ticket Notifier - Email Test",
+              html: "<h2>Email notifications are working!</h2><p>Your BMS Ticket Notifier can successfully send emails through Resend.</p><p>This is a test message.</p>"
+            }')
+
+          response=$(curl -sS -w "\n%{http_code}" \
+            -X POST https://api.resend.com/emails \
+            -H "Authorization: Bearer $RESEND_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$payload")
+
+          echo "$response"
+
+          status=$(echo "$response" | tail -n 1)
+
+          if [ "$status" != "200" ] && [ "$status" != "201" ]; then
+            echo "Email sending failed!"
+            exit 1
+          fi
+
+          echo "Email accepted by Resend successfully!"
